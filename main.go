@@ -1,20 +1,37 @@
 package main
 
-import "github.com/sbinet/go-python"
+import (
+	"sync"
+
+	"github.com/sbinet/go-python"
+)
 
 func main() {
 	python.Initialize()
 	defer python.Finalize()
 
+	var wg sync.WaitGroup
+	wg.Add(2)
+
 	fooModule := python.PyImport_ImportModule("foo")
-	if fooModule == nil {
-		panic("Error importing module")
-	}
+	odds := fooModule.GetAttrString("print_odds")
+	even := fooModule.GetAttrString("print_even")
 
-	helloFunc := fooModule.GetAttrString("hello")
-	if helloFunc == nil {
-		panic("Error importing function")
-	}
+	go func() {
+		_gstate := python.PyGILState_Ensure()
+		odds.Call(python.PyTuple_New(0), python.PyDict_New())
+		python.PyGILState_Release(_gstate)
 
-	helloFunc.Call(python.PyTuple_New(0), python.PyDict_New())
+		wg.Done()
+	}()
+
+	go func() {
+		_gstate := python.PyGILState_Ensure()
+		even.Call(python.PyTuple_New(0), python.PyDict_New())
+		python.PyGILState_Release(_gstate)
+
+		wg.Done()
+	}()
+
+	wg.Wait()
 }
