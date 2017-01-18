@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/sbinet/go-python"
@@ -8,30 +9,31 @@ import (
 
 func main() {
 	python.Initialize()
-	defer python.Finalize()
+	// `Initialize` acquires the GIL but we need to leave it
+	// so that our gouroutines can acquire it when needed
+	state := python.PyEval_SaveThread()
 
 	var wg sync.WaitGroup
-	wg.Add(2)
 
+	_gstate := python.PyGILState_Ensure()
 	fooModule := python.PyImport_ImportModule("foo")
-	odds := fooModule.GetAttrString("print_odds")
-	even := fooModule.GetAttrString("print_even")
+	rnd := fooModule.GetAttrString("print_rand")
+	python.PyGILState_Release(_gstate)
 
-	go func() {
-		_gstate := python.PyGILState_Ensure()
-		odds.Call(python.PyTuple_New(0), python.PyDict_New())
-		python.PyGILState_Release(_gstate)
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
 
-		wg.Done()
-	}()
+			s := python.PyGILState_Ensure()
+			val := rnd.Call(python.PyTuple_New(0), python.PyDict_New())
+			python.PyGILState_Release(s)
 
-	go func() {
-		_gstate := python.PyGILState_Ensure()
-		even.Call(python.PyTuple_New(0), python.PyDict_New())
-		python.PyGILState_Release(_gstate)
-
-		wg.Done()
-	}()
+			fmt.Printf("%v\n", python.PyFloat_AsDouble(val))
+		}()
+	}
 
 	wg.Wait()
+	python.PyEval_RestoreThread(state)
+	python.Finalize()
 }

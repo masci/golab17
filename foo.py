@@ -1,4 +1,5 @@
 import time
+import random
 
 
 def hello():
@@ -24,3 +25,9 @@ def print_even(limit=10):
         if i%2 == 0:
             print i
         time.sleep(0.1)
+
+def print_rand():
+    """
+    return a random float
+    """
+    return random.random()
