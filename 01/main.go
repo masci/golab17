@@ -16,5 +16,5 @@ func main() {
 		panic("Error importing function")
 	}
 
-	helloFunc.Call(python.Py_None, python.Py_None)
+	helloFunc.Call(python.PyTuple_New(0), python.PyDict_New())
 }
